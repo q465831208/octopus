@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Circle, CircleCheck, Layers, GripVertical, X, Trash2 } from 'lucide-react';
+import { Check, Circle, CircleCheck, Layers, GripVertical, Loader2, X, Trash2, Zap } from 'lucide-react';
 import {
     DragDropContext,
     Draggable,
@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { getModelIcon } from '@/lib/model-icons';
 import type { LLMChannel } from '@/api/model';
+import { testGroupItem, type GroupItemTestResult } from '@/api/group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslations } from 'use-intl';
 
@@ -54,9 +55,24 @@ function MemberItem({
     dnd: MemberItemDnd;
 }) {
     const t = useTranslations('group');
-    const { Icon, className: iconClassName } = getModelIcon(member.name);
-    const [confirmDelete, setConfirmDelete] = useState(false);
-    const isDisabled = member.enabled === false;
+        const { Icon, className: iconClassName } = getModelIcon(member.name);
+        const [confirmDelete, setConfirmDelete] = useState(false);
+        const [testing, setTesting] = useState(false);
+        const [testRes, setTestRes] = useState<GroupItemTestResult | 'error' | null>(null);
+        const isDisabled = member.enabled === false;
+
+        const handleTest = async () => {
+            if (testing) return;
+            setTesting(true);
+            setTestRes(null);
+            try {
+                setTestRes(await testGroupItem(member.channel_id, member.name));
+            } catch {
+                setTestRes('error');
+            } finally {
+                setTesting(false);
+            }
+        };
 
     return (
         <div
@@ -124,9 +140,46 @@ function MemberItem({
                         </TooltipContent>
                     </Tooltip>
                     <span className="text-[10px] text-muted-foreground truncate leading-tight">{member.channel_name}</span>
-                </div>
+                                    </div>
 
-                {onActivate && member.item_id !== undefined && (
+                                    <div className="flex items-center">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => { event.stopPropagation(); handleTest(); }}
+                                                    disabled={testing}
+                                                    aria-label="测试是否可对话"
+                                                    className={cn(
+                                                        'p-1 rounded transition-colors',
+                                                        testing ? 'cursor-default text-muted-foreground'
+                                                            : testRes === null
+                                                                ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                                                : testRes === 'error' || !testRes.ok
+                                                                    ? 'text-red-500 hover:bg-muted'
+                                                                    : 'text-green-600 hover:bg-muted',
+                                                    )}
+                                                >
+                                                    {testing ? <Loader2 className="size-3.5 animate-spin" />
+                                                        : testRes === null ? <Zap className="size-3.5" />
+                                                        : testRes === 'error' ? <X className="size-3.5" />
+                                                        : testRes.ok ? <Check className="size-3.5" />
+                                                        : <X className="size-3.5" />}
+                                                </button>
+                                            </TooltipTrigger>
+                                            {testRes && (
+                                                <TooltipContent side="top" sideOffset={8} align="center" className="max-w-xs text-xs whitespace-pre-wrap">
+                                                    {testRes === 'error'
+                                                        ? '测试失败：请求未完成'
+                                                        : `${testRes.ok ? '✔ 可正常对话' : '✘ 不可用'} · ${testRes.latency_ms}ms` +
+                                                          (testRes.detail ? `\n${testRes.detail}` : '') +
+                                                          (testRes.preview ? `\n${testRes.preview}` : '')}
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </div>
+
+                                    {onActivate && member.item_id !== undefined && (
                     <span className={cn('p-1', isActive ? 'text-primary' : 'text-muted-foreground')}>
                         {isActive ? <CircleCheck className="size-4" /> : <Circle className="size-4" />}
                     </span>

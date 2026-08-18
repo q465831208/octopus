@@ -15,6 +15,7 @@ const (
 	TaskStatsSave    = "stats_save"
 	TaskSyncLLM      = "sync_llm"
 	TaskCleanLLM     = "clean_llm"
+	TaskGroupHealth  = "group_health"
 )
 
 func Init() {
@@ -47,5 +48,13 @@ func Init() {
 		return
 	}
 	statsSaveInterval := time.Duration(statsSaveIntervalMinutes) * time.Minute
-	Register(TaskStatsSave, statsSaveInterval, false, op.StatsSaveDBTask)
-}
+		Register(TaskStatsSave, statsSaveInterval, false, op.StatsSaveDBTask)
+
+		// 注册分组健康任务：每小时测试所有分组的模型项，失效项自动移出分组，
+		// 使负载均衡只在可用的模型项上进行。
+		Register(TaskGroupHealth, time.Hour, true, func() {
+			if err := op.TestAllGroupsAndPrune(context.Background()); err != nil {
+				log.Warnf("group health task failed: %v", err)
+			}
+		})
+	}

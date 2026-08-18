@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Trash2, X, Pencil } from 'lucide-react';
+import { Loader2, FlaskConical, Trash2, X, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { type Group, type GroupUpdateRequest, useDeleteGroup, useUpdateGroup, useUpdateGroupActiveItem } from '@/api/group';
+import { useQueryClient } from '@tanstack/react-query';
+import { type Group, type GroupUpdateRequest, testGroupAll, useDeleteGroup, useUpdateGroup, useUpdateGroupActiveItem } from '@/api/group';
+import { groupListQueryOptions } from '@/api/queries';
 import { useModelChannelList } from '@/api/model';
 import { useTranslations } from 'use-intl';
 import { toast } from 'sonner';
@@ -70,7 +72,23 @@ export function GroupCard({ group }: { group: Group }) {
 
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [members, setMembers] = useState<SelectedMember[]>([]);
+    const [testingAll, setTestingAll] = useState(false);
     const isDragging = useRef(false);
+    const queryClient = useQueryClient();
+
+    const handleTestAll = useCallback(async () => {
+        if (!group.id || testingAll) return;
+        setTestingAll(true);
+        try {
+            const r = await testGroupAll(group.id);
+            toast.success(`测试完成：保留 ${r.kept} 项，移除失效 ${r.removed} 项`);
+            queryClient.invalidateQueries({ queryKey: groupListQueryOptions.queryKey });
+        } catch (error) {
+            toast.error('测试失败', { description: error instanceof Error ? error.message : String(error) });
+        } finally {
+            setTestingAll(false);
+        }
+    }, [group.id, testingAll, queryClient]);
 
     const channelNameByKey = useMemo(() => buildChannelNameByModelKey(modelChannels), [modelChannels]);
     const enabledByKey = useMemo(() => {
@@ -211,6 +229,22 @@ export function GroupCard({ group }: { group: Group }) {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                type="button"
+                                onClick={handleTestAll}
+                                disabled={testingAll}
+                                aria-label="测试全部模型（移除失效项）"
+                                className="p-1.5 rounded-lg transition-colors hover:bg-muted text-muted-foreground hover:text-primary disabled:opacity-50 disabled:cursor-wait"
+                            >
+                                {testingAll ? <Loader2 className="size-4 animate-spin" /> : <FlaskConical className="size-4" />}
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={10} align="center">
+                            测试全部模型，失效项自动移出
+                        </TooltipContent>
+                    </Tooltip>
                     <MorphingDialog>
                         <MorphingDialogTrigger className="p-1.5 rounded-lg transition-colors hover:bg-muted text-muted-foreground hover:text-foreground">
                             <Tooltip>

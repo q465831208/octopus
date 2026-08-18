@@ -43,6 +43,45 @@ export interface GroupUpdateRequest {
     items_to_delete?: number[];
 }
 
+// GroupItemTestResult 是分组内单项模型对话测试的结果。
+export interface GroupItemTestResult {
+    ok: boolean;
+    latency_ms: number;
+    detail: string;
+    preview: string;
+}
+
+// GroupItemTestOutcome 是批量测试时单个项的结果（含 item_id / channel / model）。
+export interface GroupItemTestOutcome extends GroupItemTestResult {
+    item_id: number;
+    channel_id: number;
+    model_name: string;
+}
+
+// GroupTestAllResult 是一次性测试全部分组项的结果（失败项已自动移出分组）。
+export interface GroupTestAllResult {
+    tested: number;
+    kept: number;
+    removed: number;
+    results: GroupItemTestOutcome[];
+}
+
+// testGroupItem 测试分组内 (channel_id, model_name) 能否正常对话。
+export function testGroupItem(channelId: number, modelName: string): Promise<GroupItemTestResult> {
+    return apiRequest<GroupItemTestResult>('/api/v1/group/test-item', {
+        method: 'POST',
+        body: { channel_id: channelId, model_name: modelName },
+    });
+}
+
+// testGroupAll 一次性测试分组内所有模型项；失败的项会被自动移出分组，只在可用项上负载均衡。
+export function testGroupAll(groupId: number): Promise<GroupTestAllResult> {
+    return apiRequest<GroupTestAllResult>('/api/v1/group/test-all', {
+        method: 'POST',
+        body: { group_id: groupId },
+    });
+}
+
 // useGroupList 获取全部分组，可由调用方控制是否立即查询。
 export function useGroupList(enabled = true) {
     return useQuery({
