@@ -1,0 +1,10 @@
+data
+build
+web/node_modules
+web/dist
+.git
+.github
+*.exe
+*.log
+tools/pool_manager/*.json
+!tools/pool_manager/config.example.json

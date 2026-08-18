@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+# Octopus 自建镜像（请求级负载均衡版）
+# 多阶段构建：前端 (Vite) -> Go 后端 -> Alpine 运行时
+# 构建：docker build -f Dockerfile.lb -t octopus:lb .
+
+# ---------- Stage 1: 前端 ----------
+FROM node:22-alpine AS web
+WORKDIR /src/web
+RUN npm install -g pnpm@10 --silent
+COPY web/package.json web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --silent
+COPY web/ ./
+# vite build 直接输出到 ../static/out（go:embed 目录）
+RUN pnpm run build
+
+# ---------- Stage 2: Go 后端 ----------
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# 前端产物覆盖到 embed 目录（先拷源码再覆盖，避免 COPY . 把产物冲掉）
+COPY --from=web /src/static/out ./static/out
+ARG VERSION=lb
+ARG COMMIT=local
+ENV CGO_ENABLED=0
+RUN go build -trimpath -o /octopus \
+    -ldflags "-X 'github.com/bestruirui/octopus/internal/conf.Version=${VERSION}' \
+              -X 'github.com/bestruirui/octopus/internal/conf.BuildTime=$(date +"%F %T %z")' \
+              -X 'github.com/bestruirui/octopus/internal/conf.Author=lb' \
+              -X 'github.com/bestruirui/octopus/internal/conf.Commit=${COMMIT}' \
+              -s -w" \
+    -tags=jsoniter .
+
+# ---------- Stage 3: 运行时 ----------
+FROM alpine:3.20
+ENV TZ=Asia/Shanghai \
+    APP_NAME=octopus
+RUN apk add --no-cache ca-certificates su-exec tzdata && \
+    mkdir -p /app
+COPY --from=build /octopus /app/octopus
+COPY scripts/dockerfile/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 8080
+CMD ["/entrypoint.sh"]

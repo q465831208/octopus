@@ -1,0 +1,13 @@
+{
+  "octopus_base_url": "http://127.0.0.1:7070",
+  "octopus_db": "/opt/octopus/data/data.db",
+  "admin_username": "admin",
+  "admin_password": "change-me",
+  "retry_interval": 1,
+  "model_aliases": {
+    "deepseek-v4-flash": [
+      "deepseek-v4-flash",
+      "deepseek/deepseek-v4-flash"
+    ]
+  }
+}

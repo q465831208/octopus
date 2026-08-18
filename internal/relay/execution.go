@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -21,6 +22,7 @@ import (
 
 var requestIDs atomic.Uint64 // requestIDs 分配进程内严格递增的请求 ID。
 var errNoActiveChannel = errors.New("no active channel") // errNoActiveChannel 表示分组尚未选择活动渠道。
+var lbCounter atomic.Uint64 // lbCounter 提供跨请求轮询游标，实现请求级负载均衡。
 
 // execution 保存单个客户端请求的全部可变执行状态。
 type execution struct {
@@ -128,7 +130,10 @@ func (e *execution) execute() {
 	}
 }
 
-// resolveTarget 加载请求模型对应的分组并校验当前活动渠道，返回本轮分组项、渠道和重试间隔。
+// resolveTarget 加载请求模型对应的分组，以请求级轮询（round-robin）在可用渠道间做负载均衡，
+// 并返回本轮挑选的分组项、渠道和重试间隔。
+// 可用渠道的定义：渠道处于启用状态且配置了 key；禁用/缺 key 的渠道会被跳过。
+// 失败重试时外层循环会再次调用本函数，游标前进后自然 failover 到下一个可用渠道。
 func (e *execution) resolveTarget(ctx context.Context) (model.GroupItem, *model.Channel, int, error) {
 	retryInterval := 1
 	group, err := op.GroupGetByName(e.request.model, ctx)
@@ -139,28 +144,34 @@ func (e *execution) resolveTarget(ctx context.Context) (model.GroupItem, *model.
 		retryInterval = group.RetryInterval
 	}
 
-	var item model.GroupItem
-	if group.ActiveItemID == 0 {
-		return model.GroupItem{}, nil, retryInterval, errNoActiveChannel
-	}
+	var eligible []model.GroupItem
 	for _, candidate := range group.Items {
-		if candidate.ID == group.ActiveItemID {
-			item = candidate
-			break
+		ch, err := op.ChannelGet(candidate.ChannelID, ctx)
+		if err != nil {
+			continue
 		}
+		if !ch.Enabled || ch.Key == "" {
+			continue
+		}
+		eligible = append(eligible, candidate)
 	}
-	if item.ID == 0 {
-		return model.GroupItem{}, nil, retryInterval, errors.New("active channel not found")
+	if len(eligible) == 0 {
+		return model.GroupItem{}, nil, retryInterval, errors.New("no available channel")
 	}
+
+	// 按 priority 稳定排序，让轮询从低延迟（priority 小，由池同步脚本按实测延迟设定）开始转。
+	sort.SliceStable(eligible, func(i, j int) bool {
+		if eligible[i].Priority != eligible[j].Priority {
+			return eligible[i].Priority < eligible[j].Priority
+		}
+		return eligible[i].ID < eligible[j].ID
+	})
+
+	idx := lbCounter.Add(1) % uint64(len(eligible))
+	item := eligible[idx]
 	channel, err := op.ChannelGet(item.ChannelID, ctx)
 	if err != nil {
 		return item, nil, retryInterval, errors.New("active channel not found")
-	}
-	if !channel.Enabled {
-		return item, channel, retryInterval, errors.New("active channel disabled")
-	}
-	if channel.Key == "" {
-		return item, channel, retryInterval, errors.New("active channel has no available key")
 	}
 	return item, channel, retryInterval, nil
 }

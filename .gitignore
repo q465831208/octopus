@@ -3,3 +3,5 @@ build
 static/out/*
 !static/out/README.md
 .vscode
+tools/pool_manager/pool-config.json__pycache__/
+*.pyc
