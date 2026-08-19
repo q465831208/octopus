@@ -5,4 +5,4 @@ static/out/*
 .vscode
 tools/pool_manager/pool-config.json
 __pycache__/
-*.pyc
+*.pycweb/build_f.log
