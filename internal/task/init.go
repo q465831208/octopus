@@ -39,7 +39,8 @@ func Init() {
 		return
 	}
 	syncLLMInterval := time.Duration(syncLLMIntervalHours) * time.Hour
-	Register(string(model.SettingKeySyncLLMInterval), syncLLMInterval, true, SyncModelsTask)
+	// 模型同步不随启动执行（仅按周期），避免每次重启都触发同步并清理分组项。
+	Register(string(model.SettingKeySyncLLMInterval), syncLLMInterval, false, SyncModelsTask)
 
 	// 注册统计保存任务
 	statsSaveIntervalMinutes, err := op.SettingGetInt(model.SettingKeyStatsSaveInterval)

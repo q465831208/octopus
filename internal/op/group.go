@@ -352,7 +352,9 @@ func GroupItemDel(id int, ctx context.Context) error {
 	return groupRefreshCacheByID(item.GroupID, ctx)
 }
 
-// GroupItemBatchDelByChannelAndModels 根据渠道ID和模型名称批量删除分组项
+// GroupItemBatchDelByChannelAndModels 根据渠道ID和模型名称批量处理分组项。
+// 注意：模型同步任务会用它清理"渠道模型列表中消失"的项——为避免误删可用模型，
+// 这里改为**标记禁用(不删除)**，由负载均衡跳过；模型重新出现后健康测试会恢复启用。
 func GroupItemBatchDelByChannelAndModels(keys []model.GroupIDAndLLMName, ctx context.Context) error {
 	if len(keys) == 0 {
 		return nil
@@ -371,21 +373,21 @@ func GroupItemBatchDelByChannelAndModels(keys []model.GroupIDAndLLMName, ctx con
 		Pluck("group_id", &groupIDs).Error; err != nil {
 		return fmt.Errorf("failed to find group ids: %w", err)
 	}
-
 	if len(groupIDs) == 0 {
 		return nil
 	}
 
+	// 标记禁用而非删除：避免模型同步把分组池误删。
 	if err := db.GetDB().WithContext(ctx).
+		Model(&model.GroupItem{}).
 		Where("(channel_id, model_name) IN ?", conditions).
-		Delete(&model.GroupItem{}).Error; err != nil {
-		return fmt.Errorf("failed to delete group items: %w", err)
+		Update("enabled", false).Error; err != nil {
+		return fmt.Errorf("failed to disable group items: %w", err)
 	}
 
 	if err := groupRefreshCacheByIDs(groupIDs, ctx); err != nil {
 		return fmt.Errorf("failed to refresh group cache: %w", err)
 	}
-
 	return nil
 }
 
