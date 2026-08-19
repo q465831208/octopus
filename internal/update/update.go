@@ -32,6 +32,12 @@ type LatestInfo struct {
 
 var github_pat = os.Getenv(strings.ToUpper(conf.APP_NAME) + "_GITHUB_PAT")
 
+// 自定义构建（版本号不以 v 开头，如 lb-<sha>）时禁用在线更新，
+// 避免"立即更新"拉取官方发布二进制覆盖自定义功能。
+func isCustomBuild() bool {
+	return !strings.HasPrefix(conf.Version, "v")
+}
+
 // doRequestWithFallback performs an HTTP GET request, first without proxy, then with proxy if failed.
 func doRequestWithFallback(url string) ([]byte, error) {
 	data, err := doRequest(url, false)
@@ -77,6 +83,14 @@ func doRequest(url string, useProxy bool) ([]byte, error) {
 }
 
 func GetLatestInfo() (*LatestInfo, error) {
+	// 自定义构建：直接返回当前版本信息，前端显示"无更新"
+	if isCustomBuild() {
+		return &LatestInfo{
+			TagName:     conf.Version,
+			PublishedAt: conf.BuildTime,
+			Body:        "custom build: 在线更新已禁用",
+		}, nil
+	}
 	body, err := doRequestWithFallback(updateApiUrl)
 	if err != nil {
 		return nil, err

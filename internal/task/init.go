@@ -51,8 +51,9 @@ func Init() {
 		Register(TaskStatsSave, statsSaveInterval, false, op.StatsSaveDBTask)
 
 		// 注册分组健康任务：每小时测试所有分组的模型项，失效项自动移出分组，
-		// 使负载均衡只在可用的模型项上进行。
-		Register(TaskGroupHealth, time.Hour, true, func() {
+		// 使负载均衡只在可用的模型项上进行。（注意：不随启动运行，
+		// 避免配置/网络异常时启动即刻清空分组池）
+		Register(TaskGroupHealth, time.Hour, false, func() {
 			if err := op.TestAllGroupsAndPrune(context.Background()); err != nil {
 				log.Warnf("group health task failed: %v", err)
 			}

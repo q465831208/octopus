@@ -13,6 +13,12 @@ import (
 )
 
 func UpdateCore() error {
+	// 自定义构建禁止在线更新，防止官方二进制覆盖自定义功能
+	if isCustomBuild() {
+		err := fmt.Errorf("custom build: 在线更新已禁用")
+		log.Warnf("update core rejected: %v", err)
+		return err
+	}
 	log.Infof("start update core")
 
 	filename, err := getDownloadFilename()
