@@ -13,6 +13,7 @@ import (
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/charmbracelet/log"
 	"github.com/looplj/axonhub/llm/httpclient"
+	"github.com/looplj/axonhub/llm/transformer"
 )
 
 // GroupItemTestOutcome 分组内单个模型项的对话测试结果。
@@ -36,16 +37,18 @@ func TestGroupItemChannel(ctx context.Context, channel *model.Channel, modelName
 	base := strings.TrimRight(channel.BaseURL, "/")
 	var url string
 	var body []byte
+	// 与转发链路(relay outbound)保持一致：对 OpenAI/Anthropic 自动补全 /v1，
+	// 同时尊重 base_url 末尾 #(跳过版本补全)/ ##(完整URL原样) 的自定义约定。
 	switch channel.Type {
 	case model.ChannelProviderAnthropic:
-		url = base + "/messages"
+		url = transformer.NormalizeBaseURL(base, "v1") + "/messages"
 		body, _ = json.Marshal(map[string]any{
 			"model":      modelName,
 			"max_tokens": 200,
 			"messages":   []map[string]any{{"role": "user", "content": "ping"}},
 		})
 	default:
-		url = base + "/chat/completions"
+		url = transformer.NormalizeBaseURL(base, "v1") + "/chat/completions"
 		body, _ = json.Marshal(map[string]any{
 			"model":      modelName,
 			"max_tokens": 200,
