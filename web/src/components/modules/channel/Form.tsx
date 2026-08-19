@@ -208,34 +208,39 @@ export function ChannelForm({
             </div>
 
             <div className="space-y-2">
-                <label htmlFor={`${idPrefix}-base-url`} className="text-sm font-medium text-card-foreground">
-                    {t('baseUrl')}
-                </label>
-                <Input
-                    id={`${idPrefix}-base-url`}
-                    type="url"
-                    value={formData.base_url}
-                    onChange={(event) => onFormDataChange({ ...formData, base_url: event.target.value })}
-                    placeholder={t('baseUrlUrl')}
-                    required
-                    className="rounded-xl"
-                />
-            </div>
+                            <label htmlFor={`${idPrefix}-base-url`} className="text-sm font-medium text-card-foreground">
+                                {t('baseUrl')}
+                            </label>
+                            <Input
+                                id={`${idPrefix}-base-url`}
+                                type="url"
+                                value={formData.base_url}
+                                onChange={(event) => onFormDataChange({ ...formData, base_url: event.target.value })}
+                                placeholder={t('baseUrlUrl')}
+                                required
+                                className="rounded-xl"
+                            />
+                            <p className="text-xs text-muted-foreground/60 leading-relaxed">
+                                自动按渠道类型补全版本路径（OpenAI/Anthropic 自动加 /v1，无需手动填）。
+                                自定义路径：末尾加 <code className="text-foreground/70">#</code> 跳过版本补全（如 <code className="text-foreground/70">https://host/v2#</code>）；
+                                末尾加 <code className="text-foreground/70">##</code> 表示完整 URL 原样使用（不追加任何路径）。
+                            </p>
+                        </div>
 
-            <div className="space-y-2">
-                <label htmlFor={`${idPrefix}-key`} className="text-sm font-medium text-card-foreground">
-                    {t('apiKey')}
-                </label>
-                <Input
-                    id={`${idPrefix}-key`}
-                    type="text"
-                    value={formData.key}
-                    onChange={(event) => onFormDataChange({ ...formData, key: event.target.value })}
-                    placeholder={t('apiKey')}
-                    required
-                    className="rounded-xl"
-                />
-            </div>
+                        <div className="space-y-2">
+                            <label htmlFor={`${idPrefix}-key`} className="text-sm font-medium text-card-foreground">
+                                {t('apiKey')}
+                            </label>
+                            <Input
+                                id={`${idPrefix}-key`}
+                                type="text"
+                                value={formData.key}
+                                onChange={(event) => onFormDataChange({ ...formData, key: event.target.value })}
+                                placeholder={t('apiKey')}
+                                required
+                                className="rounded-xl"
+                            />
+                        </div>
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
