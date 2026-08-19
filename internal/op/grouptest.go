@@ -176,6 +176,13 @@ func TestGroupItemsAndPrune(ctx context.Context, groupID int) ([]GroupItemTestOu
 			continue
 		}
 		res := TestGroupItemChannel(ctx, channel, item.ModelName)
+		if !res.OK {
+			// 单项失败未必是真失效：批量会因快速连续探测触碰上游限流/瞬时超时而被误判。
+			// 重试一次再判定（与单项测试同条件），两次都失败才移出，避免误删可用模型。
+			if retry := TestGroupItemChannel(ctx, channel, item.ModelName); retry.OK {
+				res = retry
+			}
+		}
 		res.ItemID = item.ID
 		results = append(results, res)
 		if !res.OK {
