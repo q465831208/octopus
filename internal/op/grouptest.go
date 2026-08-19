@@ -38,17 +38,26 @@ func TestGroupItemChannel(ctx context.Context, channel *model.Channel, modelName
 	var url string
 	var body []byte
 	// 与转发链路(relay outbound)保持一致：对 OpenAI/Anthropic 自动补全 /v1，
-	// 同时尊重 base_url 末尾 #(跳过版本补全)/ ##(完整URL原样) 的自定义约定。
+	// 同时尊重 base_url 末尾 #(跳过版本补全)/ ##(完整URL原样,不追加端点) 的自定义约定。
+	rawURL := strings.HasSuffix(base, "##")
 	switch channel.Type {
 	case model.ChannelProviderAnthropic:
-		url = transformer.NormalizeBaseURL(base, "v1") + "/messages"
+		if rawURL {
+			url = strings.TrimSuffix(base, "##")
+		} else {
+			url = transformer.NormalizeBaseURL(base, "v1") + "/messages"
+		}
 		body, _ = json.Marshal(map[string]any{
 			"model":      modelName,
 			"max_tokens": 200,
 			"messages":   []map[string]any{{"role": "user", "content": "ping"}},
 		})
 	default:
-		url = transformer.NormalizeBaseURL(base, "v1") + "/chat/completions"
+		if rawURL {
+			url = strings.TrimSuffix(base, "##")
+		} else {
+			url = transformer.NormalizeBaseURL(base, "v1") + "/chat/completions"
+		}
 		body, _ = json.Marshal(map[string]any{
 			"model":      modelName,
 			"max_tokens": 200,
