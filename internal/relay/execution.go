@@ -153,6 +153,10 @@ func (e *execution) resolveTarget(ctx context.Context) (model.GroupItem, *model.
 		if !ch.Enabled || ch.Key == "" {
 			continue
 		}
+		// 跳过被健康测试标记为禁用的分组项（仅是标记，不删除）。
+		if !candidate.IsEnabled() {
+			continue
+		}
 		eligible = append(eligible, candidate)
 	}
 	if len(eligible) == 0 {

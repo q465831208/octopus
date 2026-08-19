@@ -326,6 +326,19 @@ func GroupItemUpdate(item *model.GroupItem, ctx context.Context) error {
 	return groupRefreshCacheByID(item.GroupID, ctx)
 }
 
+// GroupItemSetEnabled 设置分组项的启用/禁用状态（健康测试的"标记"逻辑，不删除分组项）。
+func GroupItemSetEnabled(id int, enabled bool, ctx context.Context) error {
+	var item model.GroupItem
+	if err := db.GetDB().WithContext(ctx).First(&item, id).Error; err != nil {
+		return fmt.Errorf("group item not found")
+	}
+	if err := db.GetDB().WithContext(ctx).Model(&model.GroupItem{}).
+		Where("id = ?", id).Update("enabled", enabled).Error; err != nil {
+		return err
+	}
+	return groupRefreshCacheByID(item.GroupID, ctx)
+}
+
 func GroupItemDel(id int, ctx context.Context) error {
 	var item model.GroupItem
 	if err := db.GetDB().WithContext(ctx).First(&item, id).Error; err != nil {

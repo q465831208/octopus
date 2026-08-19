@@ -9,6 +9,8 @@ export interface GroupItem {
     channel_id: number;
     model_name: string;
     priority: number;
+    // enabled 是否参与负载均衡；false=被健康测试标记禁用(不删除，仅跳过)。缺省按启用处理。
+    enabled?: boolean;
 }
 
 // Group 是客户端模型名称对应的手动渠道分组。

@@ -161,15 +161,16 @@ func TestGroupItemChannel(ctx context.Context, channel *model.Channel, modelName
 	return out
 }
 
-// TestGroupItemsAndPrune 测试分组内所有项；失败的项从分组移除，仅在成功项上保留负载均衡。
-// 返回每个项的结果、保留数、移除数。
+// TestGroupItemsAndPrune 测试分组内所有项；失败的项标记为禁用(保留在分组, 供负载均衡跳过)，
+// 成功的项恢复启用。不再物理删除，避免把"单测正常但批量时瞬时限流/超时"的模型误删。
+// 返回每个项的结果、保留(可用)数、禁用数。
 func TestGroupItemsAndPrune(ctx context.Context, groupID int) ([]GroupItemTestOutcome, int, int, error) {
 	group, err := GroupGet(groupID, ctx)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 	results := make([]GroupItemTestOutcome, 0, len(group.Items))
-	var deleteIDs []int
+	var disabledIDs []int
 	for _, item := range group.Items {
 		channel, err := ChannelGet(item.ChannelID, ctx)
 		if err != nil {
@@ -178,24 +179,26 @@ func TestGroupItemsAndPrune(ctx context.Context, groupID int) ([]GroupItemTestOu
 		res := TestGroupItemChannel(ctx, channel, item.ModelName)
 		if !res.OK {
 			// 单项失败未必是真失效：批量会因快速连续探测触碰上游限流/瞬时超时而被误判。
-			// 重试一次再判定（与单项测试同条件），两次都失败才移出，避免误删可用模型。
+			// 重试一次再判定（与单项测试同条件），两次都失败才标记禁用。
 			if retry := TestGroupItemChannel(ctx, channel, item.ModelName); retry.OK {
 				res = retry
 			}
 		}
 		res.ItemID = item.ID
 		results = append(results, res)
+		// 成功→恢复启用；失败→标记禁用（不删除，负载均衡会跳过）。
+		wantEnabled := res.OK
+		if item.IsEnabled() != wantEnabled {
+			if err := GroupItemSetEnabled(item.ID, wantEnabled, ctx); err != nil {
+				log.Errorf("failed to set group item %d enabled=%v: %v", item.ID, wantEnabled, err)
+			}
+		}
 		if !res.OK {
-			deleteIDs = append(deleteIDs, item.ID)
+			disabledIDs = append(disabledIDs, item.ID)
 		}
 	}
-	if len(deleteIDs) > 0 {
-		if _, err := GroupUpdate(&model.GroupUpdateRequest{ID: groupID, ItemsToDelete: deleteIDs}, ctx); err != nil {
-			return results, 0, 0, err
-		}
-	}
-	kept := len(results) - len(deleteIDs)
-	return results, kept, len(deleteIDs), nil
+	kept := len(results) - len(disabledIDs)
+	return results, kept, len(disabledIDs), nil
 }
 
 // TestAllGroupsAndPrune 测试并收敛全部分组的负载均衡池（失败项移出）。供定时任务/批量调用。

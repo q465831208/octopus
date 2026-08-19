@@ -16,7 +16,13 @@ type GroupItem struct {
 	ChannelID int    `json:"channel_id" gorm:"not null;index:idx_group_channel_model,unique"` // ChannelID 是实际上游渠道 ID。
 	ModelName string `json:"model_name" gorm:"not null;index:idx_group_channel_model,unique"` // ModelName 是该渠道实际请求的模型名称。
 	Priority  int    `json:"priority"`                                                         // Priority 仅用于分组项的界面展示顺序。
+	// Enabled 是否参与负载均衡。nil(或 true)=启用；健康测试失败会被标记为 false(而非删除)，
+	// 负载均衡会跳过被禁用的项。nil 表示旧数据/未设置，按启用处理。
+	Enabled *bool `json:"enabled" gorm:"default:true"`
 }
+
+// IsEnabled 返回分组项是否处于可用（未被标记禁用）状态。nil 按启用处理。
+func (g GroupItem) IsEnabled() bool { return g.Enabled == nil || *g.Enabled }
 
 // GroupUpdateRequest 表示分组普通配置和成员变更请求。
 type GroupUpdateRequest struct {

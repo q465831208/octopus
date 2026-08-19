@@ -81,7 +81,7 @@ export function GroupCard({ group }: { group: Group }) {
         setTestingAll(true);
         try {
             const r = await testGroupAll(group.id);
-            toast.success(`测试完成：保留 ${r.kept} 项，移除失效 ${r.removed} 项`);
+            toast.success(`测试完成：保留 ${r.kept} 项，禁用 ${r.removed} 项（未删除）`);
             queryClient.invalidateQueries({ queryKey: groupListQueryOptions.queryKey });
         } catch (error) {
             toast.error('测试失败', { description: error instanceof Error ? error.message : String(error) });
@@ -105,7 +105,8 @@ export function GroupCard({ group }: { group: Group }) {
             .map((item) => ({
                 id: modelChannelKey(item.channel_id, item.model_name),
                 name: item.model_name,
-                enabled: enabledByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? true,
+                // 渠道 disabled 或 项被健康测试标记禁用 均为禁用
+                enabled: (enabledByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? true) && (item.enabled ?? true),
                 channel_id: item.channel_id,
                 channel_name: channelNameByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? `Channel ${item.channel_id}`,
                 item_id: item.id,
@@ -242,7 +243,7 @@ export function GroupCard({ group }: { group: Group }) {
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" sideOffset={10} align="center">
-                            测试全部模型，失效项自动移出
+                            测试全部模型，失效项自动标记禁用（不删除）
                         </TooltipContent>
                     </Tooltip>
                     <MorphingDialog>
