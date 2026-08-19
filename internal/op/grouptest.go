@@ -49,6 +49,11 @@ func TestGroupItemChannel(ctx context.Context, channel *model.Channel, modelName
 	// 探测请求直接使用带上下文超时的普通客户端。
 	client := &http.Client{}
 
+	// 单项探测必须设置超时上限，避免上游慢/挂起时整个 test-all 无限转圈。
+	// 25s 覆盖绝大多数正常渠道；过慢的渠道按"不可用"处理（可手动加回）。
+	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+
 	base := strings.TrimRight(channel.BaseURL, "/")
 	var url string
 	var body []byte
