@@ -152,10 +152,13 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 				Priority:  item.Priority,
 			}
 		}
-		if err := tx.Create(&newItems).Error; err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to create items: %w", err)
-		}
+		if err := tx.Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "group_id"}, {Name: "channel_id"}, {Name: "model_name"}},
+					DoUpdates: clause.AssignmentColumns([]string{"enabled", "priority"}),
+				}).Create(&newItems).Error; err != nil {
+					tx.Rollback()
+					return nil, fmt.Errorf("failed to create items: %w", err)
+				}
 	}
 
 	if err := tx.Commit().Error; err != nil {
