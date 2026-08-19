@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,20 @@ import (
 	"github.com/looplj/axonhub/llm/httpclient"
 	"github.com/looplj/axonhub/llm/transformer"
 )
+
+// probePrompts 随机自然对话池：健康检查/测试时随机挑选一条，
+// 避免固定探测话术(ping/问模型等)被上游识别为自动化测试。
+var probePrompts = []string{
+	"帮我安排一个轻松点的周末",
+	"用简短的话解释光合作用",
+	"推荐一本好书给我",
+	"写一句适合发朋友圈的旅行文案",
+	"给我一句让人放松的话",
+}
+
+func randomProbePrompt() string {
+	return probePrompts[rand.IntN(len(probePrompts))]
+}
 
 // GroupItemTestOutcome 分组内单个模型项的对话测试结果。
 type GroupItemTestOutcome struct {
@@ -42,28 +57,28 @@ func TestGroupItemChannel(ctx context.Context, channel *model.Channel, modelName
 	rawURL := strings.HasSuffix(base, "##")
 	switch channel.Type {
 	case model.ChannelProviderAnthropic:
-		if rawURL {
-			url = strings.TrimSuffix(base, "##")
-		} else {
-			url = transformer.NormalizeBaseURL(base, "v1") + "/messages"
-		}
-		body, _ = json.Marshal(map[string]any{
-			"model":      modelName,
-			"max_tokens": 200,
-			"messages":   []map[string]any{{"role": "user", "content": "ping"}},
-		})
-	default:
-		if rawURL {
-			url = strings.TrimSuffix(base, "##")
-		} else {
-			url = transformer.NormalizeBaseURL(base, "v1") + "/chat/completions"
-		}
-		body, _ = json.Marshal(map[string]any{
-			"model":      modelName,
-			"max_tokens": 200,
-			"stream":     false,
-			"messages":   []map[string]any{{"role": "user", "content": "ping"}},
-		})
+			if rawURL {
+				url = strings.TrimSuffix(base, "##")
+			} else {
+				url = transformer.NormalizeBaseURL(base, "v1") + "/messages"
+			}
+			body, _ = json.Marshal(map[string]any{
+				"model":      modelName,
+				"max_tokens": 200,
+				"messages":   []map[string]any{{"role": "user", "content": randomProbePrompt()}},
+			})
+		default:
+			if rawURL {
+				url = strings.TrimSuffix(base, "##")
+			} else {
+				url = transformer.NormalizeBaseURL(base, "v1") + "/chat/completions"
+			}
+			body, _ = json.Marshal(map[string]any{
+				"model":      modelName,
+				"max_tokens": 200,
+				"stream":     false,
+				"messages":   []map[string]any{{"role": "user", "content": randomProbePrompt()}},
+			})
 	}
 
 	start := time.Now()
