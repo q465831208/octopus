@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/bestruirui/octopus/internal/model"
@@ -111,13 +112,25 @@ func clonedDefaultTransport() (*http.Transport, error) {
 	return transport.Clone(), nil
 }
 
+// uaRoundTripper 为出站请求注入默认浏览器 User-Agent，
+// 仅当当前 UA 为空或是 Go/axonhub 的机器人默认值时覆盖，保留用户自定义 UA。
+type uaRoundTripper struct{ base http.RoundTripper }
+
+func (t *uaRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	ua := req.Header.Get("User-Agent")
+	if ua == "" || strings.HasPrefix(ua, "Go-http-client") || strings.HasPrefix(ua, "Go-http/") || strings.HasPrefix(ua, "axonhub") {
+		req.Header.Set("User-Agent", model.DefaultUserAgent)
+	}
+	return t.base.RoundTrip(req)
+}
+
 func newHTTPClientNoProxy() (*http.Client, error) {
 	cloned, err := clonedDefaultTransport()
 	if err != nil {
 		return nil, err
 	}
 	cloned.Proxy = nil
-	return &http.Client{Transport: cloned}, nil
+	return &http.Client{Transport: &uaRoundTripper{cloned}}, nil
 }
 
 func newHTTPClientCustomProxy(proxyURLStr string) (*http.Client, error) {
@@ -132,20 +145,20 @@ func newHTTPClientCustomProxy(proxyURLStr string) (*http.Client, error) {
 	}
 
 	switch proxyURL.Scheme {
-	case "http", "https":
-		cloned.Proxy = http.ProxyURL(proxyURL)
-	case "socks", "socks5":
-		socksDialer, err := proxy.FromURL(proxyURL, proxy.Direct)
-		if err != nil {
-			return nil, fmt.Errorf("invalid socks proxy: %w", err)
+		case "http", "https":
+			cloned.Proxy = http.ProxyURL(proxyURL)
+		case "socks", "socks5":
+			socksDialer, err := proxy.FromURL(proxyURL, proxy.Direct)
+			if err != nil {
+				return nil, fmt.Errorf("invalid socks proxy: %w", err)
+			}
+			cloned.Proxy = nil
+			cloned.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return socksDialer.Dial(network, addr)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported proxy scheme: %s", proxyURL.Scheme)
 		}
-		cloned.Proxy = nil
-		cloned.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return socksDialer.Dial(network, addr)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported proxy scheme: %s", proxyURL.Scheme)
-	}
 
-	return &http.Client{Transport: cloned}, nil
-}
+		return &http.Client{Transport: &uaRoundTripper{cloned}}, nil
+	}

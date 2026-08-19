@@ -62,6 +62,9 @@ func TestGroupItemChannel(ctx context.Context, channel *model.Channel, modelName
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	// 默认使用浏览器 UA，规避 Cloudflare 对 Go/axonhub 机器人 UA 的 403 拦截；
+	// 下方渠道自定义 Header 仍可覆盖。
+	req.Header.Set("User-Agent", model.DefaultUserAgent)
 	if channel.Type == model.ChannelProviderAnthropic {
 		req.Header.Set("x-api-key", channel.Key)
 		req.Header.Set("anthropic-version", "2023-06-01")
