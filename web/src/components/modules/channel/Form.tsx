@@ -162,13 +162,12 @@ export function ChannelForm({
     return (
         <form
             onSubmit={(event) => {
-                            if (!hasModels) {
-                                event.preventDefault();
-                                toast.error(t('noModels'));
-                                return;
-                            }
-                            onSubmit(event);
-                        }}
+                if (!hasModels) {
+                    event.preventDefault();
+                    return;
+                }
+                onSubmit(event);
+            }}
             className="space-y-4 px-1"
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
