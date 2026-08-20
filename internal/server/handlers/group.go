@@ -9,6 +9,7 @@ import (
 	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
+	"github.com/charmbracelet/log"
 	"github.com/gin-gonic/gin"
 )
 
@@ -65,6 +66,11 @@ func updateGroup(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+	// 审计: 记录谁在改分组 + 本次改动的 items 规模, 便于排查"模型被删"问题
+	if len(req.ItemsToDelete) > 0 || len(req.ItemsToAdd) > 0 {
+		log.Infof("[group-update] from=%s group=%d del=%d[ids:%v] add=%d",
+			c.ClientIP(), req.ID, len(req.ItemsToDelete), req.ItemsToDelete, len(req.ItemsToAdd))
 	}
 	group, err := op.GroupUpdate(&req, c.Request.Context())
 	if err != nil {
