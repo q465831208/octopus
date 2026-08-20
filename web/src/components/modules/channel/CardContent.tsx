@@ -10,6 +10,7 @@ import {
     TrendingUp
 } from 'lucide-react';
 import { useUpdateChannel, useDeleteChannel, type Channel, type UpdateChannelRequest } from '@/api/channel';
+import { toast } from 'sonner';
 import {
     MorphingDialogTitle,
     MorphingDialogDescription,
@@ -94,8 +95,16 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
 
         updateChannel.mutate(req, {
             onSuccess: () => {
+                toast.success(t('saved'));
                 setIsEditing(false);
                 setIsOpen(false);
+            },
+            onError: (err) => {
+                const msg =
+                    typeof err === 'object' && err !== null && 'message' in err
+                        ? String((err as { message?: unknown }).message ?? '')
+                        : '';
+                toast.error(msg ? `${t('saveFailed')}: ${msg}` : t('saveFailed'));
             }
         });
     };
