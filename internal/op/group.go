@@ -100,9 +100,9 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 		}
 	}
 
-	// 处理待删除 items：改为"标记禁用"而非物理删除。
-	// 避免过期的前端编辑器状态(只含少数项的旧成员列表)或任何来源把刚加回分组的模型整批删掉。
-	// 被标记禁用的项仍保留在分组，负载均衡跳过，可后续手动/测试恢复。
+	// 处理待删除 items：前端编辑器显式移除的项应真正删除(用户明确要移除)。
+	// 注意: "测试全部/健康检查"对失效项走独立的"标记禁用"逻辑(grouptest.go),
+	// 这里只负责用户手动从编辑器删除(真删)。
 	if len(req.ItemsToDelete) > 0 {
 		for _, itemID := range req.ItemsToDelete {
 			if itemID == oldGroup.ActiveItemID {
@@ -113,11 +113,9 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 				break
 			}
 		}
-		if err := tx.Model(&model.GroupItem{}).
-			Where("id IN ? AND group_id = ?", req.ItemsToDelete, req.ID).
-			Update("enabled", false).Error; err != nil {
+		if err := tx.Where("id IN ? AND group_id = ?", req.ItemsToDelete, req.ID).Delete(&model.GroupItem{}).Error; err != nil {
 			tx.Rollback()
-			return nil, fmt.Errorf("failed to disable items: %w", err)
+			return nil, fmt.Errorf("failed to delete items: %w", err)
 		}
 	}
 
