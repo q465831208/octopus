@@ -127,6 +127,19 @@ export function useUpdateGroupActiveItem() {
     });
 }
 
+// useUpdateGroupItemEnabled 手动启用/禁用单个分组项（不删除）。
+export function useUpdateGroupItemEnabled() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+            apiRequest<{ id: number; enabled: boolean }>('/api/v1/group/item/enabled', {
+                method: 'POST',
+                body: { id, enabled },
+            }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: groupListQueryOptions.queryKey }),
+    });
+}
+
 // useDeleteGroup 删除分组。
 export function useDeleteGroup() {
     const queryClient = useQueryClient();

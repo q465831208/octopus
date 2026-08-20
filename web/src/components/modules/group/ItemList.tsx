@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Check, Circle, CircleCheck, Layers, GripVertical, Loader2, X, Trash2, Zap } from 'lucide-react';
+import { Check, Circle, CircleCheck, CircleOff, GripVertical, Layers, Loader2, X, Trash2, Zap } from 'lucide-react';
 import {
     DragDropContext,
     Draggable,
@@ -39,6 +39,7 @@ function MemberItem({
     member,
     onRemove,
     onActivate,
+    onToggleEnabled,
     isActive,
     isRemoving,
     showConfirmDelete = true,
@@ -48,6 +49,7 @@ function MemberItem({
     member: SelectedMember;
     onRemove: (id: string) => void;
     onActivate?: (itemId: number) => void;
+    onToggleEnabled?: (itemId: number, enabled: boolean) => void;
     isActive?: boolean;
     isRemoving?: boolean;
     showConfirmDelete?: boolean;
@@ -185,6 +187,30 @@ function MemberItem({
                     </span>
                 )}
 
+                {onToggleEnabled && member.item_id !== undefined && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); onToggleEnabled(member.item_id!, !isDisabled); }}
+                                disabled={isRemoving}
+                                aria-label={isDisabled ? '启用' : '禁用'}
+                                className={cn(
+                                    'p-1 rounded transition-colors',
+                                    isDisabled
+                                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                        : 'text-muted-foreground hover:text-destructive hover:bg-muted',
+                                )}
+                            >
+                                {isDisabled ? <CircleOff className="size-4" /> : <CircleCheck className="size-4" />}
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={8} align="center">
+                            {isDisabled ? '启用此模型（恢复参与负载均衡）' : '禁用此模型（退出负载均衡，不删除）'}
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+
                 {(!showConfirmDelete || !confirmDelete) && (
                     <motion.button
                         layoutId={`delete-btn-member-${layoutScope ?? 'default'}-${member.id}`}
@@ -242,6 +268,7 @@ interface MemberListProps {
     onReorder: (members: SelectedMember[]) => void;
     onRemove: (id: string) => void;
     onActivate?: (itemId: number) => void;
+    onToggleEnabled?: (itemId: number, enabled: boolean) => void;
     activeItemId?: number;
     /**
      * When true, auto-scroll the list to bottom when a *new visible* member appears
@@ -274,6 +301,7 @@ export function MemberList({
     onReorder,
     onRemove,
     onActivate,
+    onToggleEnabled,
     activeItemId,
     autoScrollOnAdd = true,
     onDragStart,
@@ -368,6 +396,7 @@ export function MemberList({
                                 member={members[rubric.source.index]}
                                 onRemove={onRemove}
                                 onActivate={onActivate}
+                                onToggleEnabled={onToggleEnabled}
                                 isActive={members[rubric.source.index].item_id === activeItemId}
                                 isRemoving={false}
                                 showConfirmDelete={showConfirmDelete}
@@ -399,6 +428,7 @@ export function MemberList({
                                                 member={member}
                                                 onRemove={onRemove}
                                                 onActivate={onActivate}
+                                                onToggleEnabled={onToggleEnabled}
                                                 isActive={member.item_id === activeItemId}
                                                 isRemoving={removingIds.has(member.id)}
                                                 showConfirmDelete={showConfirmDelete}

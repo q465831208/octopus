@@ -34,6 +34,10 @@ func init() {
 				Handle(updateGroupActiveItem),
 		).
 		AddRoute(
+			router.NewRoute("/item/enabled", http.MethodPost).
+				Handle(updateGroupItemEnabled),
+		).
+		AddRoute(
 			router.NewRoute("/delete/:id", http.MethodDelete).
 				Handle(deleteGroup),
 		)
@@ -78,6 +82,23 @@ func updateGroup(c *gin.Context) {
 		return
 	}
 	resp.Success(c, group)
+}
+
+// updateGroupItemEnabled 手动启用/禁用某个分组项（不删除，仅参与/退出负载均衡）。
+func updateGroupItemEnabled(c *gin.Context) {
+	var req struct {
+		ID      int  `json:"id" binding:"required"`
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := op.GroupItemSetEnabled(req.ID, req.Enabled, c.Request.Context()); err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, gin.H{"id": req.ID, "enabled": req.Enabled})
 }
 
 // updateGroupActiveItem 更新分组当前手动指定的渠道模型。

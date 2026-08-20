@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Loader2, FlaskConical, Trash2, X, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type Group, type GroupUpdateRequest, testGroupAll, useDeleteGroup, useUpdateGroup, useUpdateGroupActiveItem } from '@/api/group';
+import { type Group, type GroupUpdateRequest, testGroupAll, useDeleteGroup, useUpdateGroup, useUpdateGroupActiveItem, useUpdateGroupItemEnabled } from '@/api/group';
 import { groupListQueryOptions } from '@/api/queries';
 import { useModelChannelList } from '@/api/model';
 import { useTranslations } from 'use-intl';
@@ -67,6 +67,7 @@ export function GroupCard({ group }: { group: Group }) {
     const t = useTranslations('group');
     const updateGroup = useUpdateGroup();
     const updateActiveItem = useUpdateGroupActiveItem();
+    const updateItemEnabled = useUpdateGroupItemEnabled();
     const deleteGroup = useDeleteGroup();
     const { data: modelChannels = [] } = useModelChannelList();
 
@@ -320,6 +321,7 @@ export function GroupCard({ group }: { group: Group }) {
                     onReorder={setMembers}
                     onRemove={handleRemoveMember}
                     onActivate={handleActivate}
+                    onToggleEnabled={(itemId, enabled) => updateItemEnabled.mutate({ id: itemId, enabled }, { onSuccess, onError })}
                     activeItemId={group.active_item_id}
                     onDragStart={handleDragStart}
                     onDrop={handleDropReorder}
