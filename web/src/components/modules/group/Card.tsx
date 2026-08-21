@@ -321,7 +321,11 @@ export function GroupCard({ group }: { group: Group }) {
                     onReorder={setMembers}
                     onRemove={handleRemoveMember}
                     onActivate={handleActivate}
-                    onToggleEnabled={(itemId, enabled) => updateItemEnabled.mutate({ id: itemId, enabled }, { onSuccess, onError })}
+                    onToggleEnabled={(itemId, enabled) => {
+                        // 乐观更新: 立即切换本地状态, 让用户立刻看到反馈
+                        setMembers((prev) => prev.map((m) => (m.item_id === itemId ? { ...m, enabled } : m)));
+                        updateItemEnabled.mutate({ id: itemId, enabled }, { onSuccess, onError });
+                    }}
                     activeItemId={group.active_item_id}
                     onDragStart={handleDragStart}
                     onDrop={handleDropReorder}
