@@ -192,7 +192,7 @@ function MemberItem({
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                onClick={(event) => { event.stopPropagation(); onToggleEnabled(member.item_id!, !isDisabled); }}
+                                onClick={(event) => { event.stopPropagation(); onToggleEnabled(member.item_id!, isDisabled); }}
                                 disabled={isRemoving}
                                 aria-label={isDisabled ? '启用' : '禁用'}
                                 className={cn(
