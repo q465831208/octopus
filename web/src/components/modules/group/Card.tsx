@@ -324,7 +324,19 @@ export function GroupCard({ group }: { group: Group }) {
                     onToggleEnabled={(itemId, enabled) => {
                         // 乐观更新: 立即切换本地状态, 让用户立刻看到反馈
                         setMembers((prev) => prev.map((m) => (m.item_id === itemId ? { ...m, enabled } : m)));
-                        updateItemEnabled.mutate({ id: itemId, enabled }, { onSuccess, onError });
+                        updateItemEnabled.mutate(
+                            { id: itemId, enabled },
+                            {
+                                onSuccess,
+                                onError: (err) => {
+                                    // 后端保存失败: 回滚本地状态, 保证前后端一致
+                                    setMembers((prev) =>
+                                        prev.map((m) => (m.item_id === itemId ? { ...m, enabled: !enabled } : m)),
+                                    );
+                                    onError(err as Error);
+                                },
+                            },
+                        );
                     }}
                     activeItemId={group.active_item_id}
                     onDragStart={handleDragStart}
